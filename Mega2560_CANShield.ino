@@ -17,17 +17,21 @@
 // the cs pin of the version after v1.1 is default to D9
 // v0.9b and v1.0 is default D10
 const int SPI_CS_PIN = 10;
-int Analogue[6] = { A0, A1, A2, A3, A4, A5 };
-int SensorVal[6][7] ={0};
 
-int lowRawValue = 0;
+const int Low_analogIn = 1; //Connect current sensor with A1 of Arduino
+const int Drl_analogIn = 0; //Connect current sensor with A0 of Arduino
+const int Turn_analogIn = 2; //Connect current sensor with A2 of Arduino
+const int High_analogIn = 3; //Connect current sensor with A2 of Arduino
+const int Sublow_analogIn = 4; //Connect current sensor with A2 of Arduino
+
+int Analogue[5] = { Drl_analogIn, Low_analogIn, Turn_analogIn, High_analogIn, Sublow_analogIn };
+
+unsigned int RawValue[5] = {0,0,0,0,0};
+float Voltage[5] = {0,0,0,0,0};
+float Amps[5] = {0,0,0,0,0};
+
 int mVperAmp = 185; //Use 185 for 5A Sensor
 int ACoffset = 2500;
-
-float lowVoltage = 0;
-float lowAmps = 0;
-float test = 0;
-float test2 = 0;
 
 /*CAN Message receice variable*/
 unsigned char len = 0;
@@ -42,29 +46,20 @@ typedef union
 
 FLOATUNION_t myFloat;
 
+/*Maximum Payload 8Bytes*/
 typedef union
 {
- unsigned int number1;
- uint8_t bytes[2];
+ unsigned int in_vol[5];
+ uint8_t bytes[10];
 } INTUNION_t;
 
 INTUNION_t myint;
 
-/*
-typedef union
-{
- unsigned int lownumber;
- uint8_t lowbytes[2];
-} LOWUNION_t;
-
-LOWUNION_t myint;
-*/
-unsigned char stmp[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-unsigned char stmp1[8]= {0};
-unsigned char arr[4] = {0,0,0,0};
-unsigned char int_arr[2] = {0,0};
-unsigned char low_arr[2] = {0,0};
+/*Drl Low Turn High SubLow Pstn */ 
+unsigned char invol_arr[10] = {0,0,0,0,0,0,0,0,0,0};
+unsigned char invol_arr1[2] = {0,0};
 unsigned int output_var;
+unsigned int in_vol_total[100][5];
 
 
 MCP_CAN CAN(SPI_CS_PIN);                                    // Set CS pin
@@ -82,7 +77,7 @@ void setup()
     SERIAL.println("CAN BUS Shield init ok!");
 }
 
-
+/*Bytes to Float Conversion method*/ 
 float bytesToFloat(unsigned char b0, unsigned char b1, unsigned char b2, unsigned char b3)
 {
     float output;
@@ -98,110 +93,57 @@ float bytesToFloat(unsigned char b0, unsigned char b1, unsigned char b2, unsigne
 void loop()
 {
     static int ibuf=0;
-    int i,i1;
-    int AvgSnsrData[6]={0};
-    int locBuf =0;
-
-    /*Data Receive*/
-    if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
-    {
-        CAN.readMsgBuf(&len, buf);    // read data,  len: data length, buf: data buf
-
-        unsigned long canId = CAN.getCanId();
-        
-        //SERIAL.println("-----------------------------");
-        //SERIAL.print("Get data from ID: 0x");
-        SERIAL.print("Waiting");
-
-        if(canId == 0x426)
-        {
-          //SERIAL.print("Received");
-          //SERIAL.println(canId, HEX);
-          for(int i = 0; i<len; i++)    // print the data
-          {
-            ilcu_RH_01_200ms_buf[i] = buf[i];
-            SERIAL.print(buf[i], HEX);
-            SERIAL.print("\t");
-            //SERIAL.print(ilcu_RH_01_200ms_buf[i], BIN);
-            //SERIAL.print("\t");
-          }
-          SERIAL.println();
-        }
-        else
-        {
-          
-        }
-  
-    }
-       
-    
-    for(i=0;i<6;i++){
-      AvgSnsrData[i] = analogRead(Analogue[i]);
-      delay(0.1);
-    }
+    unsigned int i;
+    int AvgSnsrData[6]={0};   
 
     /*
-    stmp[0] = AvgSnsrData[0] & 0xFF;
-    stmp[1] = (AvgSnsrData[0] & 0xFF00)>>8;
-    stmp[2] = AvgSnsrData[1] & 0xFF;
-    stmp[3] = (AvgSnsrData[1] & 0xFF00)>>8;
-    stmp[4] = AvgSnsrData[2] & 0xFF;
-    stmp[5] = (AvgSnsrData[2] & 0xFF00)>>8;
-    stmp[6] = AvgSnsrData[3] & 0xFF;
-    stmp[7] = (AvgSnsrData[3] & 0xFF00)>>8;
-
-    stmp1[0] = AvgSnsrData[4] & 0xFF;
-    stmp1[1] = (AvgSnsrData[4] & 0xFF00)>>8;
-    stmp1[2] = AvgSnsrData[5] & 0xFF;
-    stmp1[3] = (AvgSnsrData[5] & 0xFF00)>>8;
+     * Read ADC Values from pins0~4
+     * Store in RawValue Array 
+     * Calculate Voltage
+     * Calculate Current
+     * Save Voltage into Union Variable
+     * Get the byte values for Rawvalues From the same memory space using Unions
+     * Send them in Message ID's 0x300(8Bytes) and 0x301(2Bytes)
     */
     
-    lowRawValue = AvgSnsrData[0];
-    lowVoltage = (lowRawValue / 1024.0) * 5000; // Gets you mV
-    lowAmps = ((lowVoltage - ACoffset) / mVperAmp);
-    
-    //Serial.print(lowAmps);Serial.print(" ");
-    
-    CAN.sendMsgBuf(0x100, 0, 8, stmp1);
-    CAN.sendMsgBuf(0x101, 0, 8, stmp);
+    for(i=0;i<5;i++)
+    {
+      AvgSnsrData[i] = analogRead(Analogue[i]);
+      delay(0.1);
 
-    myint.number1 = lowRawValue;
-    myFloat.number = lowAmps; // Assign a number to the float
-    for (int i=0; i<4; i++)
-    {
-     //Serial.print(myFloat.bytes[i], HEX); // Print the hex representation of the float
-     //Serial.print(' ');
-     arr[i] = myFloat.bytes[i];
-    }
-    //Serial.print(' ');
+      RawValue[i] = AvgSnsrData[i];
+      Voltage[i] = (RawValue[i] / 1024.0) * 5000; // Gets you mV
+      Amps[i] = ((Voltage[i] - ACoffset) / mVperAmp);
+      delay(0.1);
+      
+      myint.in_vol[i] = RawValue[i];  //Assign input voltage digital value
+      
+      for(int j = i;j < i+1 ;j++)
+      {
+          invol_arr[j*2] = myint.bytes[j*2];
+          invol_arr[(j*2)+1] = myint.bytes[(j*2)+1];
+      }
+      
+     }
     
-    for (int i=0; i<2; i++)
-    {
-     //Serial.print(myint.bytes[i], HEX); // Print the hex representation of the float
-     //Serial.print(' ');
-     int_arr[i] = myint.bytes[i];
-    }
-    //Serial.print(' ');
-    //Serial.print(lowRawValue);
-    //Serial.print(" ");
+    Serial.print(Amps[0]);
+    invol_arr1[0] = invol_arr[9];
+    invol_arr1[1] = invol_arr[10];
+
+    /*Shifting bytes to get original input voltage digital value*/
     output_var = ((myint.bytes[1]<<8)|(myint.bytes[0]<<0)) ;
-    //Serial.print(output_var);
+
+    /*
+     * Current Value in Uint16 Data Type
+     * Messsage Id:0x300
+     * Length :2Bytes
+     */
+    CAN.sendMsgBuf(0x300,0,8, invol_arr);
+    CAN.sendMsgBuf(0x301,0,2, invol_arr1);
     
-    
-    //test = (myFloat.bytes[3]<<24|myFloat.bytes[2]<<16|myFloat.bytes[1]<<8|myFloat.bytes[0]<<0);
-    //test2 = (((myFloat.bytes[3])<<24)|((myFloat.bytes[2])<<16)|((myFloat.bytes[1])<<8)|((myFloat.bytes[0])<<0));
-    //test2 = float(((uint32_t(myFloat.bytes[3])<<24))|((uint32_t(myFloat.bytes[2])<<16))|((uint32_t(myFloat.bytes[1])<<8))|((uint32_t(myFloat.bytes[0])<<0)));
-    
-    /*Current Value in Float Data Type*/
-    CAN.sendMsgBuf(0x200,0,4, arr);
-    /*Current Value in Uint16 Data Type*/
-    CAN.sendMsgBuf(0x300,0,2, int_arr);
-    
-    //Serial.print(bytesToFloat(myFloat.bytes[3],myFloat.bytes[2],myFloat.bytes[1],myFloat.bytes[0]));  
-   
     Serial.print('\n');
    
-    delay(1000);                       // send data per 100ms
+    delay(10);                       // send data per 10ms
 }
 
 // END FILE

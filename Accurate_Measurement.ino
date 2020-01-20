@@ -26,21 +26,10 @@ unsigned int RawValue[5] = {0,0,0,0,0};
 float Voltage[5] = {0,0,0,0,0};
 float Amps[5] = {0,0,0,0,0};
 
-int mVperAmp = 185; //Use 185 for 5A Sensor
-int ACoffset = 2500;
-
-/*CAN Message receice variable*/
-unsigned char len = 0;
-unsigned char buf[8];
-unsigned char ilcu_RH_01_200ms_buf[8];
-
-typedef union
-{
- float number;
- uint8_t bytes[4];
-} FLOATUNION_t;
-
-FLOATUNION_t myFloat;
+float mVperAmp = 0.185; //Use 185 for 5A Sensor
+float ACoffset = 2.5;
+float involtage = 5.0;
+float ADC10bit_resolrange = 1024.0;
 
 /*Maximum Payload 8Bytes*/
 typedef union
@@ -77,49 +66,63 @@ void loop()
   unsigned int x=0;
   unsigned int i = 0;
   float AcsValue[5] = {0.0,0.0,0.0,0.0,0.0},Samples[5]= {0.0,0.0,0.0,0.0,0.0},AvgAcs[5]= {0.0,0.0,0.0,0.0,0.0},AcsValueF[5]= {0.0,0.0,0.0,0.0,0.0};
+  
+  /*Read 5 Sensor Values*/
   for(i=0;i<5;i++)
   {
+    /*Read 150 samples*/
     for (int x = 0; x < 150; x++)
     { 
-      //Get 150 samples
-      AcsValue[i] = analogRead(Analogue[i]);     //Read current sensor values   
+      AcsValue[i] = analogRead(Analogue[i]);     //Read ADC values   
       Samples[i] = Samples[i] + AcsValue[i];  //Add samples together
       delay (3); // let ADC settle before next sample 3ms
     }
+    
     AvgAcs[i]=Samples[i]/150.0;//Taking Average of Samples
     
     myint.in_vol[i] = AvgAcs[i];  //Assign input voltage digital value
-
+    /* Read byte values for input voltage*/
     for(int j = i;j < i+1 ;j++)
     {
        invol_arr[j*2] = myint.bytes[j*2];
        invol_arr[(j*2)+1] = myint.bytes[(j*2)+1];
     }
 
-    //((AvgAcs * (5.0 / 1024.0)) is converitng the read voltage in 0-5 volts
-    //2.5 is offset(I assumed that arduino is working on 5v so the viout at no current comes
-    //out to be 2.5 which is out offset. If your arduino is working on different voltage than 
-    //you must change the offset according to the input voltage)
-    //0.185v(185mV) is rise in output voltage when 1A current flows at input
-    AcsValueF[i] = ((AvgAcs[i] * (5.0 / 1024.0)) - 2.5 )/0.185;
+    /*
+     * Current Calculation
+     * -------------------
+     * ((AvgAcs * (5.0 / 1024.0)) is converitng the read voltage in 0-5 volts
+     * 2.5 is offset(I assumed that arduino is working on 5v so the viout at no current comes
+     * out to be 2.5 which is out offset. If your arduino is working on different voltage than 
+     * you must change the offset according to the input voltage)
+     * 0.185v(185mV) is rise in output voltage when 1A current flows at input
+    */
+    AcsValueF[i] = ((AvgAcs[i] * (involtage / ADC10bit_resolrange)) - ACoffset )/mVperAmp;
   
   }
+    invol_arr1[0] = invol_arr[9];
+    invol_arr1[1] = invol_arr[10];
 
     /*
-     * Current Value in Uint16 Data Type
-     * Messsage Id:0x300
-     * Length :2Bytes
-     */
+     * Send Data through CAN BUS
+     * Messsage Id:0x300 - send first 8Bytes
+     * Messsage Id:0x301 - send last 2Bytes
+    */
     CAN.sendMsgBuf(0x300,0,8, invol_arr);
     CAN.sendMsgBuf(0x301,0,2, invol_arr1);
     
-    
+    /*Print First Three Current Value for reference
+     * Drl
+     * Low
+     * Turn 
+    */
     Serial.print(AcsValueF[0]);//Print the read current on Serial monitor
     Serial.print(' ');
     Serial.print(AcsValueF[1]);//Print the read current on Serial monitor
     Serial.print(' ');
     Serial.print(AcsValueF[2]);//Print the read current on Serial monitor
     Serial.print('\n');
+    
     delay(50);
 }
 

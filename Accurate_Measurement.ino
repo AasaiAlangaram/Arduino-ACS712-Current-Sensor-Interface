@@ -14,17 +14,18 @@
 // v0.9b and v1.0 is default D10
 const int SPI_CS_PIN = 10;
 
-const int Low_analogIn = 1; //Connect current sensor with A1 of Arduino
-const int Drl_analogIn = 0; //Connect current sensor with A0 of Arduino
-const int Turn_analogIn = 2; //Connect current sensor with A2 of Arduino
-const int High_analogIn = 3; //Connect current sensor with A2 of Arduino
-const int Sublow_analogIn = 4; //Connect current sensor with A2 of Arduino
+const int Drl_analogIn = 0; //Connect current sensor with A0 of Arduino(All)
+const int Low_analogIn = 1; //Connect current sensor with A1 of Arduino(All)
+const int Turn_analogIn = 2; //Connect current sensor with A2 of Arduino(All)
+const int Sublow_analogIn = 3; //Connect current sensor with A3 of Arduino(All)
+const int SideMkr_analogIn = 4; //Connect current sensor with A4 of Arduino(Only NAS)
+const int High_analogIn = 5; //Connect current sensor with A5 of Arduino(Only STD)
 
-int Analogue[5] = { Drl_analogIn, Low_analogIn, Turn_analogIn, High_analogIn, Sublow_analogIn };
+int Analogue[6] = { Drl_analogIn, Low_analogIn, Turn_analogIn, Sublow_analogIn, SideMkr_analogIn,High_analogIn };
 
-unsigned int RawValue[5] = {0,0,0,0,0};
-float Voltage[5] = {0,0,0,0,0};
-float Amps[5] = {0,0,0,0,0};
+unsigned int RawValue[6] = {0,0,0,0,0,0};
+float Voltage[6] = {0,0,0,0,0,0};
+float Amps[6] = {0,0,0,0,0,0};
 
 float mVperAmp = 0.185; //Use 185 for 5A Sensor
 float ACoffset = 2.5;
@@ -34,15 +35,15 @@ float ADC10bit_resolrange = 1024.0;
 /*Maximum Payload 8Bytes*/
 typedef union
 {
- unsigned int in_vol[5];
- uint8_t bytes[10];
+ unsigned int in_vol[6];
+ uint8_t bytes[12];
 } INTUNION_t;
 
 INTUNION_t myint;
 
-/*Drl Low Turn High SubLow Pstn */ 
-unsigned char invol_arr[10] = {0,0,0,0,0,0,0,0,0,0};
-unsigned char invol_arr1[2] = {0,0};
+///*DrlPstn Low Turn SubLow SideMkr High*/ 
+unsigned char invol_arr[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+unsigned char invol_arr1[4] = {0,0,0,0};
 unsigned int output_var;
 
 MCP_CAN CAN(SPI_CS_PIN);                                    // Set CS pin
@@ -65,10 +66,10 @@ void loop()
 {
   unsigned int x=0;
   unsigned int i = 0;
-  float AcsValue[5] = {0.0,0.0,0.0,0.0,0.0},Samples[5]= {0.0,0.0,0.0,0.0,0.0},AvgAcs[5]= {0.0,0.0,0.0,0.0,0.0},AcsValueF[5]= {0.0,0.0,0.0,0.0,0.0};
-  
-  /*Read 5 Sensor Values*/
-  for(i=0;i<5;i++)
+  float Samples[6]= {0.0,0.0,0.0,0.0,0.0,0.0},AcsValueF[6]= {0.0,0.0,0.0,0.0,0.0,0.0};
+  unsigned int AvgAcs[6]= {0.0,0.0,0.0,0.0,0.0,0.0},AcsValue[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
+  /*Read 6 Sensor Values*/
+  for(i=0;i<6;i++)
   {
     /*Read 150 samples*/
     for (int x = 0; x < 150; x++)
@@ -100,8 +101,11 @@ void loop()
     AcsValueF[i] = ((AvgAcs[i] * (involtage / ADC10bit_resolrange)) - ACoffset )/mVperAmp;
   
   }
-    invol_arr1[0] = invol_arr[9];
-    invol_arr1[1] = invol_arr[10];
+    
+    invol_arr1[0] = invol_arr[8];
+    invol_arr1[1] = invol_arr[9];
+    invol_arr1[2] = invol_arr[10];
+    invol_arr1[3] = invol_arr[11];
 
     /*
      * Send Data through CAN BUS
@@ -109,18 +113,31 @@ void loop()
      * Messsage Id:0x301 - send last 2Bytes
     */
     CAN.sendMsgBuf(0x300,0,8, invol_arr);
-    CAN.sendMsgBuf(0x301,0,2, invol_arr1);
+    CAN.sendMsgBuf(0x301,0,4, invol_arr1);
     
     /*Print First Three Current Value for reference
      * Drl
      * Low
      * Turn 
     */
+    Serial.print(AvgAcs[0]);
+    Serial.print(' ');
     Serial.print(AcsValueF[0]);//Print the read current on Serial monitor
+    Serial.print(' ');
+    Serial.print(AvgAcs[1]);
     Serial.print(' ');
     Serial.print(AcsValueF[1]);//Print the read current on Serial monitor
     Serial.print(' ');
+    Serial.print(AvgAcs[2]);
+    Serial.print(' ');
     Serial.print(AcsValueF[2]);//Print the read current on Serial monitor
+    Serial.print(' ');
+    Serial.print(AvgAcs[3]);
+    Serial.print(' ');
+    Serial.print(AcsValueF[3],5);//Print the read current on Serial monitor
+    Serial.print(' ');
+    Serial.print(AvgAcs[4]);
+    Serial.print(' ');
     Serial.print('\n');
     
     delay(50);

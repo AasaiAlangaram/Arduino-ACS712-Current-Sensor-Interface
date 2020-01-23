@@ -4,8 +4,7 @@ ACS712 - Fully Integrated, Hall Effect-Based Linear Current Sensor. It provide A
 
 ## Sensitivity Reference
 
-| Part Number | Sensitivity, Sens
-(Typ) (mV/A) |
+| Part Number | Sensitivity(mV/A) |
 | ----------- | ----------- |
 | ACS712ELCTR-05B-T | 185 |
 | ACS712ELCTR-20A-T | 100 |

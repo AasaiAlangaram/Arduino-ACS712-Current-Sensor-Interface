@@ -11,3 +11,5 @@ ACS712 - Fully Integrated, Hall Effect-Based Linear Current Sensor. It provide A
 | ACS712ELCTR-30A-T | 66 |
 
 ![Datasheet Diagram](https://github.com/AasaiAlangaram/Arduino-ACS712-Current-Sensor-Interface/blob/master/Images/ACS712.PNG)
+
+![Schematic](https://github.com/AasaiAlangaram/Arduino-Python-PYQT5-Serial-Communication/blob/master/Schematic.PNG)

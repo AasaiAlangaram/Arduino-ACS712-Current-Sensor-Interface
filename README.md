@@ -15,3 +15,8 @@ ACS712 - Fully Integrated, Hall Effect-Based Linear Current Sensor. It provide A
 ## Schematic
 
 ![Schematic](https://github.com/AasaiAlangaram/Arduino-Python-PYQT5-Serial-Communication/blob/master/Schematic.PNG)
+
+## Analog Inputs
+| Arduino Uno | Arduino Mega |
+| ----------- | ----------- |
+| 6 | 12|

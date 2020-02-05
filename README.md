@@ -17,6 +17,28 @@ ACS712 - Fully Integrated, Hall Effect-Based Linear Current Sensor. It provide A
 ![Schematic](https://github.com/AasaiAlangaram/Arduino-Python-PYQT5-Serial-Communication/blob/master/Schematic.PNG)
 
 ## Analog Inputs
-| Arduino Uno | Arduino Mega |
+| `Arduino Uno` | `Arduino Mega` |
 | ----------- | ----------- |
-| 6 | 16|
+| 6 | 16 |
+
+## Code 
+⋅⋅* First define input analog pin 
+```
+const int analogIn = 0; //Connect current sensor with A0 of Arduino
+```
+⋅⋅* Read Analog Value
+```
+analog_value = analogRead(Pin number);  
+```
+
+⋅⋅* Current Calculation
+-------------------
+((Analog_value * (5.0 / 1024.0)) is converitng the read voltage in 0-5 volts 2.5 is offset(I assumed that arduino is working on 5v so the viout at no current comes out to be 2.5 which is out offset. If your arduino is working on different voltage than you must change the offset according to the input voltage) 0.185v(185mV) is rise in output voltage when 1A current flows at input.
+```
+float mVperAmp = 0.185; //Use 185 for 5A Sensor
+float ACoffset = 2.5;
+float involtage = 5.0;
+float ADC10bit_resolrange = 1024.0;
+
+f_AcsValue = ((analog_value * (involtage / ADC10bit_resolrange)) - ACoffset )/mVperAmp;
+```

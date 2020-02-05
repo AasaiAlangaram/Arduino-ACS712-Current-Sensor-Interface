@@ -32,7 +32,7 @@ analog_value = analogRead(Pin number);
 ```
 
 ⋅⋅* Current Calculation
--------------------
+
 ((Analog_value * (5.0 / 1024.0)) is converitng the read voltage in 0-5 volts 2.5 is offset(I assumed that arduino is working on 5v so the viout at no current comes out to be 2.5 which is out offset. If your arduino is working on different voltage than you must change the offset according to the input voltage) 0.185v(185mV) is rise in output voltage when 1A current flows at input.
 ```
 float mVperAmp = 0.185; //Use 185 for 5A Sensor
